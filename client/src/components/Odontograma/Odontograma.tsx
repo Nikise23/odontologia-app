@@ -220,9 +220,9 @@ const Odontograma: React.FC<OdontogramaProps> = ({
   });
 
   // Definir las piezas dentales en orden correcto
-  // superiorDerecho se renderiza primero (de izquierda a derecha: 18, 17, 16, 15, 14, 13, 12, 11)
+  // Nota: superiorDerecho se renderiza en reverse, así que el orden es de izquierda a derecha visualmente
   const piezasPermanentes = {
-    superiorDerecho: ['18', '17', '16', '15', '14', '13', '12', '11'],
+    superiorDerecho: ['11', '12', '13', '14', '14', '13', '12', '11'], // Cambiado: 18→11, 17→12, 16→13, 15→14
     superiorIzquierdo: ['21', '22', '23', '24', '25', '26', '27', '28'],
     inferiorIzquierdo: ['31', '32', '33', '34', '35', '36', '37', '38'],
     inferiorDerecho: ['41', '42', '43', '44', '45', '46', '47', '48']
