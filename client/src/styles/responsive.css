@@ -1,0 +1,80 @@
+/* Estilos responsive globales */
+
+/* Breakpoints comunes */
+/* 
+  Mobile: < 768px
+  Tablet: 768px - 1024px
+  Desktop: > 1024px
+*/
+
+/* Utilidades responsive para contenedores */
+@media (max-width: 768px) {
+  /* Padding reducido en móvil */
+  .container-responsive {
+    padding: 15px 10px !important;
+  }
+  
+  /* Headers flexibles */
+  .header-responsive {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 15px !important;
+  }
+  
+  /* Grids a una columna */
+  .grid-responsive {
+    grid-template-columns: 1fr !important;
+    gap: 15px !important;
+  }
+  
+  /* Tablas con scroll horizontal */
+  .table-responsive {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    font-size: 12px !important;
+  }
+  
+  /* Formularios apilados */
+  .form-responsive {
+    flex-direction: column !important;
+  }
+  
+  /* Botones de ancho completo */
+  .button-responsive {
+    width: 100% !important;
+  }
+  
+  /* Modales más pequeños */
+  .modal-responsive {
+    width: 95% !important;
+    padding: 20px !important;
+    max-height: 95vh !important;
+  }
+}
+
+/* Estilos para tablets */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .container-responsive {
+    padding: 20px 15px !important;
+  }
+  
+  .grid-responsive {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* Ocultar elementos en móvil */
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Mostrar solo en móvil */
+@media (min-width: 769px) {
+  .show-mobile-only {
+    display: none !important;
+  }
+}
+

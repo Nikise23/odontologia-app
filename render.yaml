@@ -1,0 +1,29 @@
+services:
+  # Backend API
+  - type: web
+    name: odontologia-backend
+    env: node
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PORT
+        value: 5000
+    healthCheckPath: /api/auth/verificar
+
+  # Frontend React
+  - type: web
+    name: odontologia-frontend
+    env: static
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: ./client/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://odontologia-backend.onrender.com/api
+
