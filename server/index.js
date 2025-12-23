@@ -18,6 +18,10 @@ const usuarioRoutes = require('./routes/usuarioRoutes');
 
 const app = express();
 
+// Configurar trust proxy para Render y otros proxies
+// Esto es necesario para que express-rate-limit funcione correctamente
+app.set('trust proxy', true);
+
 // Middleware de seguridad
 // Configurar helmet para producción (servir archivos estáticos)
 if (process.env.NODE_ENV === 'production') {
