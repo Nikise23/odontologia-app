@@ -70,6 +70,11 @@ export const deletePaciente = async (id: string): Promise<ApiResponse<void>> => 
 
 // Servicios de Odontograma
 
+export const getOdontograma = async (pacienteId: string): Promise<ApiResponse<Odontograma>> => {
+  const response = await api.get(`/odontograma/${pacienteId}`);
+  return response.data;
+};
+
 export const saveOdontograma = async (odontogramaData: any): Promise<ApiResponse<Odontograma>> => {
   const response = await api.post('/odontograma', odontogramaData);
   return response.data;

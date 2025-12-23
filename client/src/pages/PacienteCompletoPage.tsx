@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from 'react-query';
 import styled from 'styled-components';
 import { FaArrowLeft, FaUser, FaTooth, FaDollarSign, FaNotesMedical } from 'react-icons/fa';
-import { getPaciente, saveOdontograma } from '../services/pacienteService';
+import { getPaciente, getOdontograma, saveOdontograma } from '../services/pacienteService';
 import { useNotification } from '../hooks/useNotification';
 import Odontograma from '../components/Odontograma/Odontograma';
 import HistorialCompleto from '../components/Historial/HistorialCompleto';
@@ -149,15 +149,15 @@ const PacienteCompletoPage: React.FC = () => {
   );
 
   // Obtener datos del odontograma
-  const { data: odontogramaData } = useQuery(
+  const { data: odontogramaResponse } = useQuery(
     ['odontograma', id],
-    () => fetch(`http://localhost:5000/api/odontograma/${id}`)
-      .then(res => res.json())
-      .then(data => data.success ? data.data : null),
+    () => getOdontograma(id!),
     {
       enabled: !!id,
     }
   );
+  
+  const odontogramaData = odontogramaResponse?.data;
 
   // Obtener consultas (opcional, para historial)
   const { data: consultasPaciente } = useQuery(
