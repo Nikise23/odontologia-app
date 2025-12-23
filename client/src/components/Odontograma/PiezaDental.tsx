@@ -81,7 +81,21 @@ const PiezaDental: React.FC<PiezaDentalProps> = ({
     e.preventDefault();
     e.stopPropagation();
     if (!ausente && onCaraDoubleClick) {
-      onCaraDoubleClick(numero, cara);
+      // Si todas las caras tienen "=" (extracción), permitir doble click en cualquier cara para eliminar
+      const todasCarasExtraccion = caras && 
+        caras.derecha === '=' && 
+        caras.izquierda === '=' && 
+        caras.superior === '=' && 
+        caras.inferior === '=' && 
+        caras.central === '=';
+      
+      if (todasCarasExtraccion) {
+        // Eliminar extracción de todas las caras
+        onCaraDoubleClick(numero, cara);
+      } else {
+        // Comportamiento normal: eliminar solo la cara seleccionada
+        onCaraDoubleClick(numero, cara);
+      }
     }
   };
 
