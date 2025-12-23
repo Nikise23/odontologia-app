@@ -63,9 +63,17 @@ router.get('/:pacienteId', async (req, res) => {
 // POST /api/odontograma - Guardar estado del odontograma
 router.post('/', async (req, res) => {
   try {
+    console.log('📥 Recibiendo datos del odontograma:', {
+      pacienteId: req.body.pacienteId,
+      fecha: req.body.fecha,
+      observaciones: req.body.observaciones,
+      piezasDentalesCount: req.body.piezasDentales ? Object.keys(req.body.piezasDentales).length : 0
+    });
+    
     const { pacienteId, observaciones, piezasDentales, fecha } = req.body;
     
     if (!pacienteId) {
+      console.error('❌ Error: pacienteId es requerido');
       return res.status(400).json({
         success: false,
         message: 'pacienteId es requerido'
@@ -76,9 +84,18 @@ router.post('/', async (req, res) => {
     let odontograma = await Odontograma.findOne({ pacienteId });
 
     if (!odontograma) {
+      // Crear fecha en hora local si es string YYYY-MM-DD
+      let fechaObj;
+      if (fecha && typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = fecha.split('-').map(Number);
+        fechaObj = new Date(year, month - 1, day);
+      } else {
+        fechaObj = fecha ? new Date(fecha) : new Date();
+      }
+      
       odontograma = new Odontograma({
         pacienteId,
-        fecha: fecha ? new Date(fecha) : new Date(),
+        fecha: fechaObj,
         observaciones: observaciones || '',
         piezasDentales: {},
         historial: []
@@ -89,9 +106,14 @@ router.post('/', async (req, res) => {
         odontograma.observaciones = observaciones;
       }
       
-      // Actualizar fecha si se proporciona
+      // Actualizar fecha si se proporciona (en hora local)
       if (fecha) {
-        odontograma.fecha = new Date(fecha);
+        if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month, day] = fecha.split('-').map(Number);
+          odontograma.fecha = new Date(year, month - 1, day);
+        } else {
+          odontograma.fecha = new Date(fecha);
+        }
       }
     }
 
@@ -205,7 +227,9 @@ router.post('/', async (req, res) => {
       }
     }
 
+    console.log('💾 Guardando odontograma...');
     await odontograma.save();
+    console.log('✅ Odontograma guardado exitosamente');
 
     res.json({
       success: true,
@@ -213,13 +237,16 @@ router.post('/', async (req, res) => {
       data: odontograma
     });
   } catch (error) {
-    console.error('Error guardando odontograma:', error);
+    console.error('❌ Error guardando odontograma:', error);
     console.error('Error stack:', error.stack);
-    console.error('Error details:', JSON.stringify(error, null, 2));
+    if (error.errors) {
+      console.error('Errores de validación:', error.errors);
+    }
     res.status(500).json({
       success: false,
       message: 'Error guardando odontograma',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      details: process.env.NODE_ENV === 'development' && error.errors ? error.errors : undefined
     });
   }
 });

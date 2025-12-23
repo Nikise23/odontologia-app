@@ -476,8 +476,8 @@ const Odontograma: React.FC<OdontogramaProps> = ({
       return;
     }
 
-    // Validar formato de fecha
-    let fechaFormateada;
+    // Validar y formatear fecha
+    let fechaFormateada: string;
     try {
       // Intentar parsear la fecha en formato DD/MM/YYYY
       const partesFecha = fecha.split('/');
@@ -485,27 +485,46 @@ const Odontograma: React.FC<OdontogramaProps> = ({
         const dia = partesFecha[0].padStart(2, '0');
         const mes = partesFecha[1].padStart(2, '0');
         const año = partesFecha[2];
-        fechaFormateada = new Date(`${año}-${mes}-${dia}`);
+        // Crear fecha en hora local y convertir a ISO string
+        const fechaObj = new Date(parseInt(año), parseInt(mes) - 1, parseInt(dia));
+        if (isNaN(fechaObj.getTime())) {
+          throw new Error('Fecha inválida');
+        }
+        // Convertir a formato YYYY-MM-DD para enviar al backend
+        fechaFormateada = `${año}-${mes}-${dia}`;
       } else {
-        fechaFormateada = new Date(fecha);
-      }
-      
-      // Verificar que la fecha es válida
-      if (isNaN(fechaFormateada.getTime())) {
-        throw new Error('Fecha inválida');
+        // Si ya está en formato ISO o otro formato, intentar parsearlo
+        const fechaObj = new Date(fecha);
+        if (isNaN(fechaObj.getTime())) {
+          throw new Error('Fecha inválida');
+        }
+        // Convertir a formato YYYY-MM-DD
+        const year = fechaObj.getFullYear();
+        const month = String(fechaObj.getMonth() + 1).padStart(2, '0');
+        const day = String(fechaObj.getDate()).padStart(2, '0');
+        fechaFormateada = `${year}-${month}-${day}`;
       }
     } catch (error) {
       console.error('Error procesando fecha:', error);
-      fechaFormateada = new Date(); // Usar fecha actual como fallback
+      // Usar fecha actual como fallback
+      const hoy = new Date();
+      const year = hoy.getFullYear();
+      const month = String(hoy.getMonth() + 1).padStart(2, '0');
+      const day = String(hoy.getDate()).padStart(2, '0');
+      fechaFormateada = `${year}-${month}-${day}`;
     }
+
+    // Asegurar que piezasDentales sea un objeto plano (no Map)
+    const piezasDentalesObj = { ...piezasDentales };
 
     const dataToSave = {
       pacienteId,
       observaciones: observaciones.trim(),
       fecha: fechaFormateada,
-      piezasDentales
+      piezasDentales: piezasDentalesObj
     };
     
+    console.log('📤 Enviando datos del odontograma:', dataToSave);
     onSave(dataToSave);
   };
 
