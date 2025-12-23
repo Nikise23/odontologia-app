@@ -24,10 +24,18 @@ router.get('/', async (req, res) => {
     let filtros = {};
     
     if (fecha) {
-      const fechaInicio = new Date(fecha);
-      fechaInicio.setHours(0, 0, 0, 0);
-      const fechaFin = new Date(fecha);
-      fechaFin.setHours(23, 59, 59, 999);
+      // Si es un string YYYY-MM-DD, crear fecha en hora local
+      let fechaInicio, fechaFin;
+      if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = fecha.split('-').map(Number);
+        fechaInicio = new Date(year, month - 1, day, 0, 0, 0, 0);
+        fechaFin = new Date(year, month - 1, day, 23, 59, 59, 999);
+      } else {
+        fechaInicio = new Date(fecha);
+        fechaInicio.setHours(0, 0, 0, 0);
+        fechaFin = new Date(fecha);
+        fechaFin.setHours(23, 59, 59, 999);
+      }
       
       filtros.fecha = {
         $gte: fechaInicio,
@@ -66,7 +74,15 @@ router.get('/', async (req, res) => {
 router.get('/dia/:fecha', async (req, res) => {
   try {
     const { fecha } = req.params;
-    const fechaDate = new Date(fecha);
+    
+    // Si es un string YYYY-MM-DD, crear fecha en hora local
+    let fechaDate;
+    if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = fecha.split('-').map(Number);
+      fechaDate = new Date(year, month - 1, day);
+    } else {
+      fechaDate = new Date(fecha);
+    }
     
     if (isNaN(fechaDate.getTime())) {
       return res.status(400).json({
@@ -166,12 +182,24 @@ router.post('/', async (req, res) => {
     
     console.log('✅ Paciente encontrado:', paciente.nombre);
     
-    // Combinar fecha y hora
-    const fechaCompleta = new Date(value.fecha);
+    // Combinar fecha y hora en hora local (no UTC)
+    // Si value.fecha es un string YYYY-MM-DD, crear la fecha en hora local
+    let fechaCompleta;
+    if (typeof value.fecha === 'string' && value.fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      // Es un string YYYY-MM-DD, crear fecha en hora local
+      const [year, month, day] = value.fecha.split('-').map(Number);
+      fechaCompleta = new Date(year, month - 1, day);
+    } else {
+      // Es una fecha ISO o Date object
+      fechaCompleta = new Date(value.fecha);
+    }
+    
+    // Agregar hora en hora local
     const [hora, minutos] = value.hora.split(':');
     fechaCompleta.setHours(parseInt(hora), parseInt(minutos), 0, 0);
     
-    console.log('📅 Fecha combinada:', fechaCompleta);
+    console.log('📅 Fecha combinada (local):', fechaCompleta);
+    console.log('📅 Fecha combinada (ISO):', fechaCompleta.toISOString());
     
     const cita = new Cita({
       ...value,
@@ -222,9 +250,18 @@ router.put('/:id', async (req, res) => {
       });
     }
     
-    // Combinar fecha y hora si se proporcionan
+    // Combinar fecha y hora si se proporcionan (en hora local)
     if (value.fecha && value.hora) {
-      const fechaCompleta = new Date(value.fecha);
+      let fechaCompleta;
+      if (typeof value.fecha === 'string' && value.fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Es un string YYYY-MM-DD, crear fecha en hora local
+        const [year, month, day] = value.fecha.split('-').map(Number);
+        fechaCompleta = new Date(year, month - 1, day);
+      } else {
+        // Es una fecha ISO o Date object
+        fechaCompleta = new Date(value.fecha);
+      }
+      
       const [hora, minutos] = value.hora.split(':');
       fechaCompleta.setHours(parseInt(hora), parseInt(minutos), 0, 0);
       value.fecha = fechaCompleta;

@@ -54,18 +54,11 @@ export const createCita = async (citaData: {
   tipoCita?: 'consulta' | 'tratamiento' | 'revision' | 'urgencia' | 'limpieza';
   costoEstimado?: number;
 }): Promise<ApiResponse<Cita>> => {
-  // Combinar fecha y hora correctamente
-  const fechaBase = new Date(citaData.fecha);
-  const [hora, minutos] = citaData.hora.split(':');
-  fechaBase.setHours(parseInt(hora), parseInt(minutos), 0, 0);
-  
-  console.log('📅 Fecha original:', citaData.fecha);
-  console.log('🕐 Hora:', citaData.hora);
-  console.log('📅 Fecha combinada:', fechaBase.toISOString());
-  
+  // Enviar fecha como string YYYY-MM-DD y hora separada
+  // El backend se encargará de combinarlas correctamente en hora local
   const dataToSend = {
     pacienteId: citaData.pacienteId,
-    fecha: fechaBase.toISOString(),
+    fecha: citaData.fecha, // Enviar como YYYY-MM-DD
     hora: citaData.hora,
     motivo: citaData.motivo || '',
     observaciones: citaData.observaciones || '',

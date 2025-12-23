@@ -317,7 +317,16 @@ interface CitasDelDiaProps {
 }
 
 const CitasDelDia: React.FC<CitasDelDiaProps> = ({ fecha }) => {
-  const [fechaSeleccionada, setFechaSeleccionada] = useState(fecha || new Date().toISOString().split('T')[0]);
+  // Obtener fecha actual en formato YYYY-MM-DD en hora local
+  const getFechaLocal = () => {
+    const hoy = new Date();
+    const year = hoy.getFullYear();
+    const month = String(hoy.getMonth() + 1).padStart(2, '0');
+    const day = String(hoy.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(fecha || getFechaLocal());
   const [mostrarModalNuevaCita, setMostrarModalNuevaCita] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
