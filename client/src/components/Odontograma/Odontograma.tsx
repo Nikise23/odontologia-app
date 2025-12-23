@@ -211,6 +211,7 @@ const Odontograma: React.FC<OdontogramaProps> = ({
     requerido?: string | null;
     existente?: string | null;
   }}>({});
+  const [modoTratamiento, setModoTratamiento] = useState<'ROJO' | 'AZUL' | null>(null); // Modo actual: ROJO (anterior) o AZUL (requerido)
   const [menuContextual, setMenuContextual] = useState({
     show: false,
     position: { x: 0, y: 0 },
@@ -344,6 +345,13 @@ const Odontograma: React.FC<OdontogramaProps> = ({
   };
 
   const handleTratamientoSelect = (tratamiento: string) => {
+    // Si se selecciona "ROJO" o "AZUL", establecer el modo de tratamiento
+    if (tratamiento === 'ROJO' || tratamiento === 'AZUL') {
+      setModoTratamiento(tratamiento as 'ROJO' | 'AZUL');
+      setMenuContextual(prev => ({ ...prev, show: false, cara: '' }));
+      return; // No aplicar tratamiento, solo establecer modo
+    }
+    
     // Si se selecciona "X" (diente ausente), marcar todo el diente como ausente
     if (tratamiento === 'X') {
       setPiezasDentales((prev) => {
@@ -363,6 +371,7 @@ const Odontograma: React.FC<OdontogramaProps> = ({
           }
         };
       });
+      setModoTratamiento(null); // Resetear modo
     } else if (tratamiento === '=') {
       // Si se selecciona "=" (extracción), marcar todas las caras con extracción
       setPiezasDentales((prev) => {
@@ -382,8 +391,14 @@ const Odontograma: React.FC<OdontogramaProps> = ({
           }
         };
       });
+      setModoTratamiento(null); // Resetear modo
     } else if (menuContextual.cara) {
       // Si hay una cara seleccionada, aplicar el tratamiento a esa cara
+      // Si hay un modo activo (ROJO o AZUL), combinar con el tratamiento
+      const tratamientoFinal = modoTratamiento 
+        ? `${modoTratamiento}:${tratamiento}` 
+        : tratamiento;
+      
       setPiezasDentales((prev) => {
         const current = prev[menuContextual.pieza] || {};
         const currentCaras = current.caras || {
@@ -401,11 +416,14 @@ const Odontograma: React.FC<OdontogramaProps> = ({
             ausente: false, // Si se aplica un tratamiento diferente, el diente no está ausente
             caras: {
               ...currentCaras,
-              [menuContextual.cara]: tratamiento
+              [menuContextual.cara]: tratamientoFinal
             }
           }
         };
       });
+      
+      // Resetear modo después de aplicar
+      setModoTratamiento(null);
     } else {
       // Compatibilidad con el sistema anterior
       setPiezasDentales((prev) => {
@@ -419,6 +437,7 @@ const Odontograma: React.FC<OdontogramaProps> = ({
           }
         };
       });
+      setModoTratamiento(null); // Resetear modo
     }
     
     setMenuContextual(prev => ({ ...prev, show: false, cara: '' }));
@@ -708,10 +727,23 @@ const Odontograma: React.FC<OdontogramaProps> = ({
           }
         </MenuSection>
         
+        {modoTratamiento && (
+          <MenuSection $color={modoTratamiento === 'ROJO' ? '#dc3545' : '#007bff'}>
+            MODO ACTIVO: {modoTratamiento === 'ROJO' ? 'TRATAMIENTOS ANTERIORES' : 'TRATAMIENTOS REQUERIDOS'}
+            <br />
+            <small style={{ fontSize: '10px', opacity: 0.9 }}>Selecciona un tratamiento para aplicar con este color</small>
+          </MenuSection>
+        )}
+        
         {tratamientos.map(tratamiento => (
           <MenuItem 
             key={tratamiento.nombre}
             onClick={() => handleTratamientoSelect(tratamiento.nombre)}
+            style={{
+              backgroundColor: modoTratamiento && (tratamiento.nombre === 'ROJO' || tratamiento.nombre === 'AZUL')
+                ? modoTratamiento === tratamiento.nombre ? '#dc3545' : '#f8f9fa'
+                : 'white'
+            }}
           >
             {tratamiento.nombre}: {tratamiento.descripcion}
           </MenuItem>
@@ -721,6 +753,15 @@ const Odontograma: React.FC<OdontogramaProps> = ({
           <FaTrash />
           {menuContextual.cara ? `LIMPIAR CARA ${menuContextual.cara.toUpperCase()}` : 'LIMPIAR PIEZA'}
         </LimpiarButton>
+        
+        {modoTratamiento && (
+          <LimpiarButton 
+            onClick={() => setModoTratamiento(null)}
+            style={{ backgroundColor: '#6c757d', marginTop: '5px' }}
+          >
+            Cancelar Modo {modoTratamiento}
+          </LimpiarButton>
+        )}
       </MenuContextual>
 
       {/* Botón de guardar */}

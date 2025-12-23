@@ -96,6 +96,27 @@ const PiezaDental: React.FC<PiezaDentalProps> = ({
 
   const getTratamientoNombre = (tratamiento: string | null): string => {
     if (!tratamiento) return '';
+    
+    // Si tiene formato "ROJO:*" o "AZUL:*", parsear
+    if (tratamiento.includes(':')) {
+      const [modo, simbolo] = tratamiento.split(':');
+      const tratamientos: { [key: string]: string } = {
+        '=': 'Extracción',
+        '*': 'Caries',
+        '\\': 'Obturación',
+        'TC': 'Tratamiento de Conducto',
+        'Pd': 'Enfermedad Periodontal',
+        'O': 'Corona',
+        'PM': 'Perno Muñón',
+        '□': 'Prótesis Fija',
+        '▢': 'Prótesis Removible',
+        '■': 'Piezas Existentes'
+      };
+      const modoNombre = modo === 'ROJO' ? 'Tratamientos anteriores' : 'Tratamientos requeridos';
+      const simboloNombre = tratamientos[simbolo] || simbolo;
+      return `${modoNombre} - ${simboloNombre}`;
+    }
+    
     const tratamientos: { [key: string]: string } = {
       'ROJO': 'Tratamientos anteriores',
       'AZUL': 'Tratamientos requeridos',
@@ -114,27 +135,53 @@ const PiezaDental: React.FC<PiezaDentalProps> = ({
     return tratamientos[tratamiento] || tratamiento;
   };
 
-  const getColorForTratamiento = (tratamiento: string | null): string => {
-    if (!tratamiento) return '#ffffff';
-    switch (tratamiento) {
-      case 'ROJO': return '#dc3545';
-      case 'AZUL': return '#007bff';
-      case '=': return '#ffffff';
-      case '*': return '#fd7e14';
-      case '\\': return '#20c997';
-      case 'TC': return '#6f42c1';
-      case 'Pd': return '#e83e8c';
-      case 'O': return '#ffc107';
-      case 'PM': return '#17a2b8';
-      case '□': return '#28a745';
-      case '▢': return '#20c997';
-      case '■': return '#ffffff';
-      default: return '#f0f0f0';
+  // Función para parsear tratamiento con formato "ROJO:*" o "AZUL:*"
+  const parseTratamiento = (tratamiento: string | null): { color: string; simbolo: string | null } => {
+    if (!tratamiento) return { color: '#ffffff', simbolo: null };
+    
+    // Si tiene formato "ROJO:*" o "AZUL:*"
+    if (tratamiento.includes(':')) {
+      const [modo, simbolo] = tratamiento.split(':');
+      if (modo === 'ROJO') {
+        return { color: '#dc3545', simbolo: simbolo || null };
+      } else if (modo === 'AZUL') {
+        return { color: '#007bff', simbolo: simbolo || null };
+      }
     }
+    
+    // Tratamientos sin modo (comportamiento anterior)
+    switch (tratamiento) {
+      case 'ROJO': return { color: '#dc3545', simbolo: null };
+      case 'AZUL': return { color: '#007bff', simbolo: null };
+      case '=': return { color: '#ffffff', simbolo: '=' };
+      case '*': return { color: '#fd7e14', simbolo: '*' };
+      case '\\': return { color: '#20c997', simbolo: '\\' };
+      case 'TC': return { color: '#6f42c1', simbolo: 'TC' };
+      case 'Pd': return { color: '#e83e8c', simbolo: 'Pd' };
+      case 'O': return { color: '#ffc107', simbolo: 'O' };
+      case 'PM': return { color: '#17a2b8', simbolo: 'PM' };
+      case '□': return { color: '#28a745', simbolo: '□' };
+      case '▢': return { color: '#20c997', simbolo: '▢' };
+      case '■': return { color: '#ffffff', simbolo: '■' };
+      default: return { color: '#f0f0f0', simbolo: tratamiento };
+    }
+  };
+
+  const getColorForTratamiento = (tratamiento: string | null): string => {
+    return parseTratamiento(tratamiento).color;
+  };
+  
+  const getSimboloForTratamiento = (tratamiento: string | null): string | null => {
+    return parseTratamiento(tratamiento).simbolo;
   };
 
   const getTextColorForTratamiento = (tratamiento: string | null): string => {
     if (!tratamiento) return '#000000';
+    // Si tiene formato "ROJO:*" o "AZUL:*", usar texto blanco
+    if (tratamiento.includes(':')) {
+      const [modo] = tratamiento.split(':');
+      if (modo === 'ROJO' || modo === 'AZUL') return '#ffffff';
+    }
     if (tratamiento === 'ROJO' || tratamiento === 'AZUL') return '#ffffff';
     return '#000000';
   };
@@ -347,65 +394,100 @@ const PiezaDental: React.FC<PiezaDentalProps> = ({
         </circle>
 
         {/* Símbolos de tratamiento */}
-        {!ausente && carasData.derecha && carasData.derecha !== 'ROJO' && carasData.derecha !== 'AZUL' && carasData.derecha !== '=' && carasData.derecha !== '■' && (
-          <SímboloTexto
-            x={centerX + outerRadius * 0.6}
-            y={centerY}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill={getTextColorForTratamiento(carasData.derecha)}
-          >
-            {carasData.derecha}
-          </SímboloTexto>
-        )}
+        {!ausente && (() => {
+          const simboloDerecha = getSimboloForTratamiento(carasData.derecha);
+          if (simboloDerecha && simboloDerecha !== '=' && simboloDerecha !== '■') {
+            return (
+              <SímboloTexto
+                key="derecha"
+                x={centerX + outerRadius * 0.6}
+                y={centerY}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={getTextColorForTratamiento(carasData.derecha)}
+              >
+                {simboloDerecha}
+              </SímboloTexto>
+            );
+          }
+          return null;
+        })()}
 
-        {!ausente && carasData.inferior && carasData.inferior !== 'ROJO' && carasData.inferior !== 'AZUL' && carasData.inferior !== '=' && carasData.inferior !== '■' && (
-          <SímboloTexto
-            x={centerX}
-            y={centerY + outerRadius * 0.6}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill={getTextColorForTratamiento(carasData.inferior)}
-          >
-            {carasData.inferior}
-          </SímboloTexto>
-        )}
+        {!ausente && (() => {
+          const simboloInferior = getSimboloForTratamiento(carasData.inferior);
+          if (simboloInferior && simboloInferior !== '=' && simboloInferior !== '■') {
+            return (
+              <SímboloTexto
+                key="inferior"
+                x={centerX}
+                y={centerY + outerRadius * 0.6}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={getTextColorForTratamiento(carasData.inferior)}
+              >
+                {simboloInferior}
+              </SímboloTexto>
+            );
+          }
+          return null;
+        })()}
 
-        {!ausente && carasData.izquierda && carasData.izquierda !== 'ROJO' && carasData.izquierda !== 'AZUL' && carasData.izquierda !== '=' && carasData.izquierda !== '■' && (
-          <SímboloTexto
-            x={centerX - outerRadius * 0.6}
-            y={centerY}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill={getTextColorForTratamiento(carasData.izquierda)}
-          >
-            {carasData.izquierda}
-          </SímboloTexto>
-        )}
+        {!ausente && (() => {
+          const simboloIzquierda = getSimboloForTratamiento(carasData.izquierda);
+          if (simboloIzquierda && simboloIzquierda !== '=' && simboloIzquierda !== '■') {
+            return (
+              <SímboloTexto
+                key="izquierda"
+                x={centerX - outerRadius * 0.6}
+                y={centerY}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={getTextColorForTratamiento(carasData.izquierda)}
+              >
+                {simboloIzquierda}
+              </SímboloTexto>
+            );
+          }
+          return null;
+        })()}
 
-        {!ausente && carasData.superior && carasData.superior !== 'ROJO' && carasData.superior !== 'AZUL' && carasData.superior !== '=' && carasData.superior !== '■' && (
-          <SímboloTexto
-            x={centerX}
-            y={centerY - outerRadius * 0.6}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill={getTextColorForTratamiento(carasData.superior)}
-          >
-            {carasData.superior}
-          </SímboloTexto>
-        )}
+        {!ausente && (() => {
+          const simboloSuperior = getSimboloForTratamiento(carasData.superior);
+          if (simboloSuperior && simboloSuperior !== '=' && simboloSuperior !== '■') {
+            return (
+              <SímboloTexto
+                key="superior"
+                x={centerX}
+                y={centerY - outerRadius * 0.6}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={getTextColorForTratamiento(carasData.superior)}
+              >
+                {simboloSuperior}
+              </SímboloTexto>
+            );
+          }
+          return null;
+        })()}
 
-        {!ausente && carasData.central && carasData.central !== 'ROJO' && carasData.central !== 'AZUL' && carasData.central !== '=' && carasData.central !== '■' && (
-          <SímboloTexto
-            x={centerX}
-            y={centerY}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill={getTextColorForTratamiento(carasData.central)}
-          >
-            {carasData.central}
-          </SímboloTexto>
-        )}
+        {!ausente && (() => {
+          const simboloCentral = getSimboloForTratamiento(carasData.central);
+          if (simboloCentral && simboloCentral !== '=' && simboloCentral !== '■') {
+            return (
+              <SímboloTexto
+                key="central"
+                x={centerX}
+                y={centerY}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={getTextColorForTratamiento(carasData.central)}
+              >
+                {simboloCentral}
+              </SímboloTexto>
+            );
+          }
+          return null;
+        })()}
 
         {/* Símbolo de extracción (=) - se muestra encima de todo el diente si cualquier cara tiene extracción */}
         {!ausente && (carasData.derecha === '=' || carasData.izquierda === '=' || carasData.superior === '=' || carasData.inferior === '=' || carasData.central === '=') && (
