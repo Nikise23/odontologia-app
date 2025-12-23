@@ -220,8 +220,9 @@ const Odontograma: React.FC<OdontogramaProps> = ({
   });
 
   // Definir las piezas dentales en orden correcto
+  // Nota: superiorDerecho se renderiza en reverse, así que el orden es de izquierda a derecha visualmente
   const piezasPermanentes = {
-    superiorDerecho: ['18', '17', '16', '15', '14', '13', '12', '11'],
+    superiorDerecho: ['11', '12', '13', '14', '14', '13', '12', '11'], // Cambiado: 18→11, 17→12, 16→13, 15→14
     superiorIzquierdo: ['21', '22', '23', '24', '25', '26', '27', '28'],
     inferiorIzquierdo: ['31', '32', '33', '34', '35', '36', '37', '38'],
     inferiorDerecho: ['41', '42', '43', '44', '45', '46', '47', '48']
@@ -247,11 +248,13 @@ const Odontograma: React.FC<OdontogramaProps> = ({
   // Cerrar menú contextual al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuContextual.show) {
+      if (menuContextual.show && !tratamientoPendiente) {
         const target = event.target as HTMLElement;
         // No cerrar si el clic es en una pieza dental o en el menú contextual
+        // Tampoco cerrar si hay un tratamiento pendiente (esperando selección de color)
         if (!target.closest('[id^="pieza-"]') && !target.closest('[class*="MenuContextual"]')) {
           setMenuContextual(prev => ({ ...prev, show: false }));
+          setTratamientoPendiente(null);
         }
       }
     };
@@ -260,7 +263,7 @@ const Odontograma: React.FC<OdontogramaProps> = ({
     return () => {
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [menuContextual.show]);
+  }, [menuContextual.show, tratamientoPendiente]);
 
 
   const handleCaraClick = (pieza: string, cara: 'derecha' | 'izquierda' | 'superior' | 'inferior' | 'central') => {
@@ -719,32 +722,76 @@ const Odontograma: React.FC<OdontogramaProps> = ({
       <ColorLegend>
         <LegendTitle>REFERENCIAS</LegendTitle>
         
-        {/* Grid compacto de referencias */}
+        {/* Grid compacto de referencias - Solo ROJO y AZUL con cuadraditos */}
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
           gap: '8px',
           fontSize: '11px'
         }}>
-          {tratamientos.map(tratamiento => (
+          {/* Mostrar ROJO y AZUL con cuadraditos de color */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px',
+            padding: '2px 0'
+          }}>
+            <ColorBox $color={getColor('ROJO')} style={{ 
+              width: '16px', 
+              height: '16px', 
+              fontSize: '10px', 
+              fontWeight: 'bold', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              minWidth: '16px'
+            }}>
+            </ColorBox>
+            <span style={{ fontSize: '10px', lineHeight: '1.2' }}>
+              ROJO: Tratamientos anteriores
+            </span>
+          </div>
+          
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px',
+            padding: '2px 0'
+          }}>
+            <ColorBox $color={getColor('AZUL')} style={{ 
+              width: '16px', 
+              height: '16px', 
+              fontSize: '10px', 
+              fontWeight: 'bold', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              minWidth: '16px'
+            }}>
+            </ColorBox>
+            <span style={{ fontSize: '10px', lineHeight: '1.2' }}>
+              AZUL: Tratamientos requeridos
+            </span>
+          </div>
+          
+          {/* Mostrar otros tratamientos sin cuadraditos, solo texto */}
+          {tratamientos.filter(t => t.nombre !== 'ROJO' && t.nombre !== 'AZUL').map(tratamiento => (
             <div key={tratamiento.nombre} style={{ 
               display: 'flex', 
               alignItems: 'center', 
               gap: '6px',
               padding: '2px 0'
             }}>
-              <ColorBox $color={getColor(tratamiento.nombre)} style={{ 
-                width: '16px', 
-                height: '16px', 
-                fontSize: '10px', 
-                fontWeight: 'bold', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                minWidth: '16px'
+              <span style={{ 
+                fontSize: '12px', 
+                fontWeight: 'bold',
+                width: '20px',
+                textAlign: 'center'
               }}>
-                {tratamiento.nombre === 'ROJO' || tratamiento.nombre === 'AZUL' ? '' : tratamiento.nombre}
-              </ColorBox>
+                {tratamiento.nombre === '=' || tratamiento.nombre === 'X' || tratamiento.nombre === '*' || tratamiento.nombre === '\\' || tratamiento.nombre === '■' || tratamiento.nombre === '□' || tratamiento.nombre === '▢'
+                  ? tratamiento.nombre 
+                  : tratamiento.nombre}
+              </span>
               <span style={{ fontSize: '10px', lineHeight: '1.2' }}>
                 {tratamiento.descripcion}
               </span>
@@ -756,7 +803,7 @@ const Odontograma: React.FC<OdontogramaProps> = ({
       <OdontogramaGrid>
         {/* Primera fila: 16 dientes - Permanentes Superiores */}
         {renderFila(
-          [...piezasPermanentes.superiorDerecho].reverse(), 
+          piezasPermanentes.superiorDerecho, 
           piezasPermanentes.superiorIzquierdo
         )}
         
