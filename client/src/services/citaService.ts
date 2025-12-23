@@ -1,6 +1,11 @@
 import { Cita, EstadisticasCitas, ApiResponse } from '../types';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// En producción, si no hay REACT_APP_API_URL, usar la misma URL (backend y frontend juntos)
+const API_BASE_URL = process.env.REACT_APP_API_URL 
+  ? process.env.REACT_APP_API_URL 
+  : process.env.NODE_ENV === 'production'
+    ? '/api'  // Mismo origen cuando están juntos
+    : 'http://localhost:5000/api';
 
 // Obtener todas las citas con filtros
 export const getCitas = async (filtros?: {

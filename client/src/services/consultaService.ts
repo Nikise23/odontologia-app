@@ -1,6 +1,11 @@
 import { Consulta, ResumenConsultas, ApiResponse } from '../types';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// En producción, si no hay REACT_APP_API_URL, usar la misma URL (backend y frontend juntos)
+const API_BASE_URL = process.env.REACT_APP_API_URL 
+  ? process.env.REACT_APP_API_URL 
+  : process.env.NODE_ENV === 'production'
+    ? '/api'  // Mismo origen cuando están juntos
+    : 'http://localhost:5000/api';
 
 // Obtener todas las consultas de un paciente
 export const getConsultas = async (pacienteId: string): Promise<ApiResponse<Consulta[]>> => {
