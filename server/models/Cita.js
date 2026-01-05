@@ -36,12 +36,6 @@ const citaSchema = new mongoose.Schema({
     ref: 'Consulta',
     default: null
   },
-  duracionEstimada: {
-    type: Number,
-    default: 30, // minutos
-    min: [15, 'La duración mínima es 15 minutos'],
-    max: [180, 'La duración máxima es 180 minutos']
-  },
   tipoCita: {
     type: String,
     enum: ['consulta', 'tratamiento', 'revision', 'urgencia', 'limpieza'],
@@ -70,24 +64,31 @@ citaSchema.index({ pacienteId: 1, fecha: -1 });
 citaSchema.index({ estado: 1, fecha: 1 });
 citaSchema.index({ fecha: 1, estado: 1 });
 
-// Middleware para validar que no haya citas duplicadas en la misma fecha y hora
+// Middleware para validar que no haya citas duplicadas en la misma fecha y hora exacta
 citaSchema.pre('save', async function(next) {
   if (this.isNew || this.isModified('fecha') || this.isModified('hora')) {
+    // Usar la fecha directamente (ya viene con hora combinada desde el backend)
     const fechaCita = new Date(this.fecha);
-    fechaCita.setHours(parseInt(this.hora.split(':')[0]));
-    fechaCita.setMinutes(parseInt(this.hora.split(':')[1]));
+    
+    // Validar solo misma fecha y hora exacta (sin intervalo de tiempo)
+    // Calcular inicio y fin del minuto exacto
+    const inicioMinuto = new Date(fechaCita);
+    inicioMinuto.setSeconds(0, 0);
+    const finMinuto = new Date(fechaCita);
+    finMinuto.setSeconds(59, 999);
     
     const citaExistente = await this.constructor.findOne({
       _id: { $ne: this._id },
       fecha: {
-        $gte: new Date(fechaCita.getTime() - 30 * 60000), // 30 minutos antes
-        $lte: new Date(fechaCita.getTime() + 30 * 60000)  // 30 minutos después
+        $gte: inicioMinuto,
+        $lte: finMinuto
       },
+      hora: this.hora, // También validar que la hora string coincida
       estado: { $nin: ['cancelada', 'ausente'] }
     });
 
     if (citaExistente) {
-      const error = new Error('Ya existe una cita programada en ese horario');
+      const error = new Error('Ya existe una cita programada en ese día y horario exacto');
       error.name = 'ValidationError';
       return next(error);
     }
@@ -96,12 +97,22 @@ citaSchema.pre('save', async function(next) {
 });
 
 // Método estático para obtener citas del día
+// La fecha viene en UTC desde el backend
 citaSchema.statics.getCitasDelDia = function(fecha) {
-  const inicioDia = new Date(fecha);
-  inicioDia.setHours(0, 0, 0, 0);
+  // La fecha ya viene en UTC, crear inicio y fin del día en UTC
+  const inicioDia = new Date(Date.UTC(
+    fecha.getUTCFullYear(),
+    fecha.getUTCMonth(),
+    fecha.getUTCDate(),
+    0, 0, 0, 0
+  ));
   
-  const finDia = new Date(fecha);
-  finDia.setHours(23, 59, 59, 999);
+  const finDia = new Date(Date.UTC(
+    fecha.getUTCFullYear(),
+    fecha.getUTCMonth(),
+    fecha.getUTCDate(),
+    23, 59, 59, 999
+  ));
   
   return this.find({
     fecha: {

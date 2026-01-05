@@ -50,19 +50,17 @@ export const createCita = async (citaData: {
   hora: string;
   motivo?: string;
   observaciones?: string;
-  duracionEstimada?: number;
   tipoCita?: 'consulta' | 'tratamiento' | 'revision' | 'urgencia' | 'limpieza';
   costoEstimado?: number;
 }): Promise<ApiResponse<Cita>> => {
   // Enviar fecha como string YYYY-MM-DD y hora separada
-  // El backend se encargará de combinarlas correctamente en hora local
+  // El backend se encargará de combinarlas correctamente en UTC
   const dataToSend = {
     pacienteId: citaData.pacienteId,
     fecha: citaData.fecha, // Enviar como YYYY-MM-DD
     hora: citaData.hora,
     motivo: citaData.motivo || '',
     observaciones: citaData.observaciones || '',
-    duracionEstimada: citaData.duracionEstimada || 30,
     tipoCita: citaData.tipoCita || 'consulta',
     costoEstimado: Number(citaData.costoEstimado) || 0
   };

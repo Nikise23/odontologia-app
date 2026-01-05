@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { FaCalendarAlt, FaTimes, FaStethoscope, FaPlus } from 'react-icons/fa';
+import { FaCalendarAlt, FaTimes, FaStethoscope, FaPlus, FaTrash, FaEdit } from 'react-icons/fa';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
-import { getCitasDelDia, marcarCitaComoAtendida, marcarCitaComoAusente } from '../../services/citaService';
+import { getCitasDelDia, marcarCitaComoAtendida, marcarCitaComoAusente, deleteCita } from '../../services/citaService';
 import { useNotification } from '../../hooks/useNotification';
 import NuevaCitaModal from './NuevaCitaModal';
+import EditarCitaModal from './EditarCitaModal';
+import { Cita } from '../../types';
 
 const CitasContainer = styled.div`
   background: white;
@@ -328,6 +330,7 @@ const CitasDelDia: React.FC<CitasDelDiaProps> = ({ fecha }) => {
   
   const [fechaSeleccionada, setFechaSeleccionada] = useState(fecha || getFechaLocal());
   const [mostrarModalNuevaCita, setMostrarModalNuevaCita] = useState(false);
+  const [citaAEditar, setCitaAEditar] = useState<Cita | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showNotification } = useNotification();
@@ -360,6 +363,16 @@ const CitasDelDia: React.FC<CitasDelDiaProps> = ({ fecha }) => {
     }
   });
 
+  const deleteCitaMutation = useMutation(deleteCita, {
+    onSuccess: () => {
+      queryClient.invalidateQueries(['citasDelDia', fechaSeleccionada]);
+      showNotification('Cita eliminada exitosamente', 'success');
+    },
+    onError: () => {
+      showNotification('Error al eliminar la cita', 'error');
+    }
+  });
+
   const handleAtender = (citaId: string, pacienteId: string) => {
     // Marcar como atendida y navegar al odontograma
     marcarAtendidaMutation.mutate(citaId);
@@ -368,6 +381,12 @@ const CitasDelDia: React.FC<CitasDelDiaProps> = ({ fecha }) => {
 
   const handleAusente = (citaId: string) => {
     marcarAusenteMutation.mutate(citaId);
+  };
+
+  const handleEliminar = (citaId: string, pacienteNombre: string, hora: string) => {
+    if (window.confirm(`¿Estás seguro de que deseas eliminar la cita de ${pacienteNombre} a las ${hora}?`)) {
+      deleteCitaMutation.mutate(citaId);
+    }
   };
 
   const handleNuevaCita = () => {
@@ -480,6 +499,13 @@ const CitasDelDia: React.FC<CitasDelDiaProps> = ({ fecha }) => {
                   {cita.estado === 'programada' || cita.estado === 'confirmada' ? (
                     <>
                       <ActionButton
+                        $variant="primary"
+                        onClick={() => setCitaAEditar(cita)}
+                      >
+                        <FaEdit />
+                        Editar
+                      </ActionButton>
+                      <ActionButton
                         $variant="success"
                         onClick={() => handleAtender(cita._id, cita.pacienteId._id || cita.pacienteId)}
                         disabled={marcarAtendidaMutation.isLoading}
@@ -495,16 +521,64 @@ const CitasDelDia: React.FC<CitasDelDiaProps> = ({ fecha }) => {
                         <FaTimes />
                         Ausente
                       </ActionButton>
+                      <ActionButton
+                        $variant="danger"
+                        onClick={() => handleEliminar(
+                          cita._id, 
+                          cita.pacienteId?.nombre || 'el paciente', 
+                          cita.hora
+                        )}
+                        disabled={deleteCitaMutation.isLoading}
+                      >
+                        <FaTrash />
+                        Eliminar
+                      </ActionButton>
                     </>
                   ) : cita.estado === 'completada' ? (
-                    <ActionButton
-                      $variant="primary"
-                      onClick={() => navigate(`/paciente/${cita.pacienteId._id || cita.pacienteId}/tratamiento`)}
-                    >
-                      <FaStethoscope />
-                      Ver Consulta
-                    </ActionButton>
-                  ) : null}
+                    <>
+                      <ActionButton
+                        $variant="primary"
+                        onClick={() => navigate(`/paciente/${cita.pacienteId._id || cita.pacienteId}/tratamiento`)}
+                      >
+                        <FaStethoscope />
+                        Ver Consulta
+                      </ActionButton>
+                      <ActionButton
+                        $variant="danger"
+                        onClick={() => handleEliminar(
+                          cita._id, 
+                          cita.pacienteId?.nombre || 'el paciente', 
+                          cita.hora
+                        )}
+                        disabled={deleteCitaMutation.isLoading}
+                      >
+                        <FaTrash />
+                        Eliminar
+                      </ActionButton>
+                    </>
+                  ) : (
+                    <>
+                      <ActionButton
+                        $variant="primary"
+                        onClick={() => setCitaAEditar(cita)}
+                      >
+                        <FaEdit />
+                        Editar
+                      </ActionButton>
+                      <ActionButton
+                        $variant="danger"
+                        onClick={() => handleEliminar(
+                          cita._id, 
+                          cita.pacienteId?.nombre || 'el paciente', 
+                          cita.hora
+                        )}
+                        disabled={deleteCitaMutation.isLoading}
+                      >
+                        <FaTrash />
+                        Eliminar
+                      </ActionButton>
+                    </>
+                  )}
                 </Actions>
               </CitaItem>
             ))}
@@ -521,6 +595,13 @@ const CitasDelDia: React.FC<CitasDelDiaProps> = ({ fecha }) => {
 
       {mostrarModalNuevaCita && (
         <NuevaCitaModal onClose={() => setMostrarModalNuevaCita(false)} />
+      )}
+
+      {citaAEditar && (
+        <EditarCitaModal 
+          cita={citaAEditar} 
+          onClose={() => setCitaAEditar(null)} 
+        />
       )}
     </CitasContainer>
   );

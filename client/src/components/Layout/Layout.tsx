@@ -216,7 +216,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       { path: '/usuarios', icon: FaUsers, text: 'USUARIOS', permisos: ['admin'] },
       { path: '/pacientes', icon: FaUser, text: 'PACIENTES', permisos: ['dentista', 'secretaria'] },
       { path: '/citas', icon: FaClock, text: 'CITAS', permisos: ['dentista', 'secretaria'] },
-      { path: '/financiero', icon: FaChartLine, text: 'FINANCIERO', permisos: ['dentista', 'admin'] },
+      { path: '/financiero', icon: FaChartLine, text: 'FINANCIERO', permisos: ['dentista', 'admin', 'secretaria'] },
       { path: '/medicamentos', icon: FaPills, text: 'MEDICAMENTOS', permisos: ['dentista', 'admin'] },
       { path: '/inventario', icon: FaBox, text: 'INVENTARIO', permisos: ['dentista', 'admin'] },
       { path: '/ajustes', icon: FaCog, text: 'AJUSTES', permisos: ['dentista', 'admin'] },

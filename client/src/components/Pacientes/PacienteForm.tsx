@@ -204,7 +204,7 @@ const Button = styled.button<{ $variant: 'primary' | 'secondary' }>`
 interface PacienteFormProps {
   paciente?: Paciente | null;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (paciente?: Paciente) => void;
 }
 
 // Función auxiliar para formatear fecha para input type="date"
@@ -329,13 +329,14 @@ const PacienteForm: React.FC<PacienteFormProps> = ({ paciente, onClose, onSucces
     console.log('Datos a enviar:', data);
     try {
       if (paciente && paciente._id) {
-        await updatePaciente(paciente._id, data);
+        const response = await updatePaciente(paciente._id, data);
         alert('Paciente actualizado exitosamente');
+        onSuccess(response.data);
       } else {
-        await createPaciente(data);
+        const response = await createPaciente(data);
         alert('Paciente creado exitosamente');
+        onSuccess(response.data);
       }
-      onSuccess();
     } catch (error: any) {
       console.error('Error guardando paciente:', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.errors?.join(', ') || 'Error al guardar el paciente';

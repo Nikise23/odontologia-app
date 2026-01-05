@@ -300,7 +300,7 @@ const PacientesPage: React.FC = () => {
     setEditingPaciente(null);
   };
 
-  const handleFormSuccess = () => {
+  const handleFormSuccess = (paciente?: Paciente) => {
     setShowForm(false);
     setEditingPaciente(null);
     queryClient.invalidateQueries('pacientes');

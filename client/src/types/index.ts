@@ -148,7 +148,6 @@ export interface Cita {
   estado: 'programada' | 'confirmada' | 'en_progreso' | 'completada' | 'ausente' | 'cancelada';
   observaciones?: string;
   consultaId?: string | Consulta;
-  duracionEstimada: number;
   tipoCita: 'consulta' | 'tratamiento' | 'revision' | 'urgencia' | 'limpieza';
   costoEstimado: number;
   recordatorioEnviado: boolean;

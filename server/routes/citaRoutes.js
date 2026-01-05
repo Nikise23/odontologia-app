@@ -11,7 +11,6 @@ const citaSchema = Joi.object({
   hora: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
   motivo: Joi.string().max(500).trim().allow(''),
   observaciones: Joi.string().max(1000).trim().allow(''),
-  duracionEstimada: Joi.number().min(15).max(180).default(30),
   tipoCita: Joi.string().valid('consulta', 'tratamiento', 'revision', 'urgencia', 'limpieza').default('consulta'),
   costoEstimado: Joi.number().min(0).default(0)
 });
@@ -24,17 +23,21 @@ router.get('/', async (req, res) => {
     let filtros = {};
     
     if (fecha) {
-      // Si es un string YYYY-MM-DD, crear fecha en hora local
+      // Si es un string YYYY-MM-DD, crear fecha en UTC para buscar
+      // Esto asegura que busquemos en el rango correcto independientemente de la zona horaria
       let fechaInicio, fechaFin;
       if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
         const [year, month, day] = fecha.split('-').map(Number);
-        fechaInicio = new Date(year, month - 1, day, 0, 0, 0, 0);
-        fechaFin = new Date(year, month - 1, day, 23, 59, 59, 999);
+        // Crear fechas en UTC para el inicio y fin del día
+        fechaInicio = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+        fechaFin = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
       } else {
-        fechaInicio = new Date(fecha);
-        fechaInicio.setHours(0, 0, 0, 0);
-        fechaFin = new Date(fecha);
-        fechaFin.setHours(23, 59, 59, 999);
+        const fechaDate = new Date(fecha);
+        const year = fechaDate.getUTCFullYear();
+        const month = fechaDate.getUTCMonth();
+        const day = fechaDate.getUTCDate();
+        fechaInicio = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+        fechaFin = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
       }
       
       filtros.fecha = {
@@ -75,11 +78,12 @@ router.get('/dia/:fecha', async (req, res) => {
   try {
     const { fecha } = req.params;
     
-    // Si es un string YYYY-MM-DD, crear fecha en hora local
+    // Si es un string YYYY-MM-DD, crear fecha en UTC
     let fechaDate;
     if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
       const [year, month, day] = fecha.split('-').map(Number);
-      fechaDate = new Date(year, month - 1, day);
+      // Crear fecha en UTC para mantener consistencia
+      fechaDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
     } else {
       fechaDate = new Date(fecha);
     }
@@ -182,24 +186,30 @@ router.post('/', async (req, res) => {
     
     console.log('✅ Paciente encontrado:', paciente.nombre);
     
-    // Combinar fecha y hora en hora local (no UTC)
-    // Si value.fecha es un string YYYY-MM-DD, crear la fecha en hora local
+    // Combinar fecha y hora usando UTC explícitamente
+    // Esto evita problemas de zona horaria: la fecha seleccionada se guarda exactamente como UTC
+    // sin conversión de zona horaria
     let fechaCompleta;
     if (typeof value.fecha === 'string' && value.fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      // Es un string YYYY-MM-DD, crear fecha en hora local
+      // Es un string YYYY-MM-DD, crear fecha directamente en UTC
+      // Esto asegura que "2024-01-05 10:00" se guarde como "2024-01-05T10:00:00.000Z"
       const [year, month, day] = value.fecha.split('-').map(Number);
-      fechaCompleta = new Date(year, month - 1, day);
+      const [hora, minutos] = value.hora.split(':');
+      // Usar Date.UTC para crear la fecha en UTC sin conversión de zona horaria
+      fechaCompleta = new Date(Date.UTC(year, month - 1, day, parseInt(hora), parseInt(minutos), 0, 0));
     } else {
       // Es una fecha ISO o Date object
       fechaCompleta = new Date(value.fecha);
+      const [hora, minutos] = value.hora.split(':');
+      // Extraer año, mes y día y crear en UTC
+      const year = fechaCompleta.getUTCFullYear();
+      const month = fechaCompleta.getUTCMonth();
+      const day = fechaCompleta.getUTCDate();
+      fechaCompleta = new Date(Date.UTC(year, month, day, parseInt(hora), parseInt(minutos), 0, 0));
     }
     
-    // Agregar hora en hora local
-    const [hora, minutos] = value.hora.split(':');
-    fechaCompleta.setHours(parseInt(hora), parseInt(minutos), 0, 0);
-    
-    console.log('📅 Fecha combinada (local):', fechaCompleta);
-    console.log('📅 Fecha combinada (ISO):', fechaCompleta.toISOString());
+    console.log('📅 Fecha combinada (UTC):', fechaCompleta.toISOString());
+    console.log('📅 Fecha interpretada como:', `${value.fecha} ${value.hora}`);
     
     const cita = new Cita({
       ...value,
@@ -240,9 +250,12 @@ router.post('/', async (req, res) => {
 // PUT /api/citas/:id - Actualizar cita
 router.put('/:id', async (req, res) => {
   try {
-    const { error, value } = citaSchema.validate(req.body);
+    // Para actualizaciones, hacer pacienteId opcional (puede no venir si no se modifica)
+    const updateSchema = citaSchema.fork(['pacienteId'], (schema) => schema.optional());
+    const { error, value } = updateSchema.validate(req.body);
     
     if (error) {
+      console.log('❌ Error de validación al actualizar:', error.details);
       return res.status(400).json({
         success: false,
         message: 'Datos de cita inválidos',
@@ -250,20 +263,31 @@ router.put('/:id', async (req, res) => {
       });
     }
     
-    // Combinar fecha y hora si se proporcionan (en hora local)
+    // Si no viene pacienteId, obtenerlo de la cita existente
+    if (!value.pacienteId) {
+      const citaExistente = await Cita.findById(req.params.id);
+      if (citaExistente) {
+        value.pacienteId = citaExistente.pacienteId;
+      }
+    }
+    
+    // Combinar fecha y hora si se proporcionan (usando UTC)
     if (value.fecha && value.hora) {
       let fechaCompleta;
       if (typeof value.fecha === 'string' && value.fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        // Es un string YYYY-MM-DD, crear fecha en hora local
+        // Es un string YYYY-MM-DD, crear fecha directamente en UTC
         const [year, month, day] = value.fecha.split('-').map(Number);
-        fechaCompleta = new Date(year, month - 1, day);
+        const [hora, minutos] = value.hora.split(':');
+        fechaCompleta = new Date(Date.UTC(year, month - 1, day, parseInt(hora), parseInt(minutos), 0, 0));
       } else {
         // Es una fecha ISO o Date object
         fechaCompleta = new Date(value.fecha);
+        const [hora, minutos] = value.hora.split(':');
+        const year = fechaCompleta.getUTCFullYear();
+        const month = fechaCompleta.getUTCMonth();
+        const day = fechaCompleta.getUTCDate();
+        fechaCompleta = new Date(Date.UTC(year, month, day, parseInt(hora), parseInt(minutos), 0, 0));
       }
-      
-      const [hora, minutos] = value.hora.split(':');
-      fechaCompleta.setHours(parseInt(hora), parseInt(minutos), 0, 0);
       value.fecha = fechaCompleta;
     }
     

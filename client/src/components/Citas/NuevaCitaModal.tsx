@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { FaTimes, FaCalendarAlt, FaClock, FaUser, FaSave } from 'react-icons/fa';
+import { FaTimes, FaCalendarAlt, FaClock, FaUser, FaSave, FaPlus } from 'react-icons/fa';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { createCita } from '../../services/citaService';
 import { getPacientes } from '../../services/pacienteService';
 import { useNotification } from '../../hooks/useNotification';
+import PacienteForm from '../Pacientes/PacienteForm';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -197,6 +198,35 @@ const LoadingMessage = styled.div`
   color: #6c757d;
 `;
 
+const CreatePacienteButton = styled.button`
+  margin-top: 10px;
+  padding: 8px 16px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+  
+  &:hover {
+    background: #218838;
+  }
+`;
+
+// Función para obtener la fecha local en formato YYYY-MM-DD
+const getLocalDateString = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 interface NuevaCitaModalProps {
   onClose: () => void;
@@ -208,17 +238,17 @@ const NuevaCitaModal: React.FC<NuevaCitaModalProps> = ({ onClose }) => {
   
   const [formData, setFormData] = useState({
     pacienteId: '',
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: getLocalDateString(),
     hora: '09:00',
     motivo: '',
     observaciones: '',
-    duracionEstimada: 30,
     tipoCita: 'consulta' as const,
     costoEstimado: 0
   });
   
   const [pacienteSearch, setPacienteSearch] = useState('');
   const [mostrarListaPacientes, setMostrarListaPacientes] = useState(false);
+  const [mostrarFormPaciente, setMostrarFormPaciente] = useState(false);
 
   const { data: pacientesData, isLoading: cargandoPacientes } = useQuery(
     ['pacientes', pacienteSearch],
@@ -260,6 +290,14 @@ const NuevaCitaModal: React.FC<NuevaCitaModalProps> = ({ onClose }) => {
     setMostrarListaPacientes(false);
   };
 
+  const handlePacienteCreated = (paciente: any) => {
+    setPacienteSearch(`${paciente.nombre} - ${paciente.ci}`);
+    setFormData(prev => ({ ...prev, pacienteId: paciente._id }));
+    setMostrarFormPaciente(false);
+    queryClient.invalidateQueries(['pacientes']);
+    showNotification('Paciente creado exitosamente', 'success');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -272,6 +310,22 @@ const NuevaCitaModal: React.FC<NuevaCitaModalProps> = ({ onClose }) => {
   };
 
   const pacientes = pacientesData?.data || [];
+
+  if (mostrarFormPaciente) {
+    return (
+      <PacienteForm
+        paciente={null}
+        onClose={() => setMostrarFormPaciente(false)}
+        onSuccess={(pacienteCreado) => {
+          if (pacienteCreado) {
+            handlePacienteCreated(pacienteCreado);
+          } else {
+            setMostrarFormPaciente(false);
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <ModalOverlay onClick={onClose}>
@@ -319,6 +373,25 @@ const NuevaCitaModal: React.FC<NuevaCitaModalProps> = ({ onClose }) => {
                     )}
                   </PacienteList>
                 )}
+                {pacienteSearch.length > 2 && !mostrarListaPacientes && pacientes.length === 0 && !cargandoPacientes && (
+                  <CreatePacienteButton
+                    type="button"
+                    onClick={() => setMostrarFormPaciente(true)}
+                  >
+                    <FaPlus />
+                    Crear nuevo paciente
+                  </CreatePacienteButton>
+                )}
+                {pacienteSearch.length === 0 && (
+                  <CreatePacienteButton
+                    type="button"
+                    onClick={() => setMostrarFormPaciente(true)}
+                    style={{ marginTop: '10px' }}
+                  >
+                    <FaPlus />
+                    Crear nuevo paciente
+                  </CreatePacienteButton>
+                )}
               </PacienteSearch>
             </FormGroup>
 
@@ -350,34 +423,20 @@ const NuevaCitaModal: React.FC<NuevaCitaModalProps> = ({ onClose }) => {
               </FormGroup>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <FormGroup>
-                <Label>Tipo de Cita</Label>
-                <Select
-                  name="tipoCita"
-                  value={formData.tipoCita}
-                  onChange={handleInputChange}
-                >
-                  <option value="consulta">Consulta</option>
-                  <option value="tratamiento">Tratamiento</option>
-                  <option value="revision">Revisión</option>
-                  <option value="urgencia">Urgencia</option>
-                  <option value="limpieza">Limpieza</option>
-                </Select>
-              </FormGroup>
-
-              <FormGroup>
-                <Label>Duración (minutos)</Label>
-                <Input
-                  type="number"
-                  name="duracionEstimada"
-                  value={formData.duracionEstimada}
-                  onChange={handleInputChange}
-                  min="15"
-                  max="180"
-                />
-              </FormGroup>
-            </div>
+            <FormGroup>
+              <Label>Tipo de Cita</Label>
+              <Select
+                name="tipoCita"
+                value={formData.tipoCita}
+                onChange={handleInputChange}
+              >
+                <option value="consulta">Consulta</option>
+                <option value="tratamiento">Tratamiento</option>
+                <option value="revision">Revisión</option>
+                <option value="urgencia">Urgencia</option>
+                <option value="limpieza">Limpieza</option>
+              </Select>
+            </FormGroup>
 
             <FormGroup>
               <Label>Motivo de la Cita</Label>
