@@ -229,15 +229,17 @@ const PacienteForm: React.FC<PacienteFormProps> = ({ paciente, onClose, onSucces
     watch,
     setValue
   } = useForm<Paciente>({
-    defaultValues: {
-      nombre: '',
-      ci: '',
-      alergias: 'Ninguna',
-      edad: undefined,
-      telefono: '',
-      email: '',
-      direccion: '',
-      anamnesis: {
+      defaultValues: {
+        nombre: '',
+        ci: '',
+        alergias: 'Ninguna',
+        edad: undefined,
+        telefono: '',
+        email: '',
+        direccion: '',
+        obraSocial: '',
+        numeroAfiliado: '',
+        anamnesis: {
         diabetes: false,
         hipertension: false,
         cardiopatia: false,
@@ -260,6 +262,8 @@ const PacienteForm: React.FC<PacienteFormProps> = ({ paciente, onClose, onSucces
         telefono: paciente.telefono || '',
         email: paciente.email || '',
         direccion: paciente.direccion || '',
+        obraSocial: paciente.obraSocial || '',
+        numeroAfiliado: paciente.numeroAfiliado || '',
         fechaNacimiento: formatDateForInput(paciente.fechaNacimiento),
         anamnesis: {
           diabetes: paciente.anamnesis?.diabetes || false,
@@ -281,6 +285,8 @@ const PacienteForm: React.FC<PacienteFormProps> = ({ paciente, onClose, onSucces
         telefono: '',
         email: '',
         direccion: '',
+        obraSocial: '',
+        numeroAfiliado: '',
         fechaNacimiento: '',
         anamnesis: {
           diabetes: false,
@@ -419,6 +425,22 @@ const PacienteForm: React.FC<PacienteFormProps> = ({ paciente, onClose, onSucces
                 <Label>Dirección</Label>
                 <TextArea
                   {...register('direccion')}
+                />
+              </FormGroup>
+
+              <FormGroup>
+                <Label>Obra Social</Label>
+                <Input
+                  {...register('obraSocial')}
+                  placeholder="Ej: OSDE, Swiss Medical, etc."
+                />
+              </FormGroup>
+
+              <FormGroup>
+                <Label>N° de Afiliado</Label>
+                <Input
+                  {...register('numeroAfiliado')}
+                  placeholder="Número de afiliado"
                 />
               </FormGroup>
 

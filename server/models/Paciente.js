@@ -45,6 +45,16 @@ const pacienteSchema = new mongoose.Schema({
     trim: true,
     maxlength: [200, 'La dirección no puede exceder 200 caracteres']
   },
+  obraSocial: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'La obra social no puede exceder 100 caracteres']
+  },
+  numeroAfiliado: {
+    type: String,
+    trim: true,
+    maxlength: [50, 'El número de afiliado no puede exceder 50 caracteres']
+  },
   // Anamnesis - Campos de estado médico
   anamnesis: {
     diabetes: {

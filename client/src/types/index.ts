@@ -8,6 +8,8 @@ export interface Paciente {
   telefono?: string;
   email?: string;
   direccion?: string;
+  obraSocial?: string;
+  numeroAfiliado?: string;
   ocupacion?: string;
   estadoCivil?: string;
   genero?: string;
