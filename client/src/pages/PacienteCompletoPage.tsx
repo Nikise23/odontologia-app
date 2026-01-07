@@ -258,10 +258,28 @@ const PacienteCompletoPage: React.FC = () => {
                     : 'No especificada'}
                 </div>
               </InfoItem>
+              {pacienteData.edad && (
+                <InfoItem>
+                  <div className="label">Edad</div>
+                  <div className="value">{pacienteData.edad} años</div>
+                </InfoItem>
+              )}
               <InfoItem>
                 <div className="label">Dirección</div>
                 <div className="value">{pacienteData.direccion || 'No especificada'}</div>
               </InfoItem>
+              {pacienteData.obraSocial && (
+                <InfoItem>
+                  <div className="label">Obra Social</div>
+                  <div className="value">{pacienteData.obraSocial}</div>
+                </InfoItem>
+              )}
+              {pacienteData.numeroAfiliado && (
+                <InfoItem>
+                  <div className="label">N° de Afiliado</div>
+                  <div className="value">{pacienteData.numeroAfiliado}</div>
+                </InfoItem>
+              )}
             </PatientInfo>
           </SectionContent>
         </Section>

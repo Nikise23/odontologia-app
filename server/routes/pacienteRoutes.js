@@ -19,6 +19,8 @@ const pacienteSchema = Joi.object({
   telefono: Joi.string().max(20).trim().allow('', null),
   email: Joi.string().email().trim().lowercase().allow('', null),
   direccion: Joi.string().max(200).trim().allow('', null),
+  obraSocial: Joi.string().max(100).trim().allow('', null),
+  numeroAfiliado: Joi.string().max(50).trim().allow('', null),
   ocupacion: Joi.string().max(100).trim().allow('', null),
   estadoCivil: Joi.string().max(50).trim().allow('', null),
   genero: Joi.string().max(20).trim().allow('', null),
@@ -164,6 +166,8 @@ router.post('/', async (req, res) => {
     if (cleanedData.telefono === '') cleanedData.telefono = null;
     if (cleanedData.email === '') cleanedData.email = null;
     if (cleanedData.direccion === '') cleanedData.direccion = null;
+    if (cleanedData.obraSocial === '') cleanedData.obraSocial = null;
+    if (cleanedData.numeroAfiliado === '') cleanedData.numeroAfiliado = null;
     if (cleanedData.ocupacion === '') cleanedData.ocupacion = null;
     if (cleanedData.estadoCivil === '') cleanedData.estadoCivil = null;
     if (cleanedData.genero === '') cleanedData.genero = null;
@@ -262,6 +266,8 @@ router.put('/:id', async (req, res) => {
     if (cleanedData.telefono === '') cleanedData.telefono = null;
     if (cleanedData.email === '') cleanedData.email = null;
     if (cleanedData.direccion === '') cleanedData.direccion = null;
+    if (cleanedData.obraSocial === '') cleanedData.obraSocial = null;
+    if (cleanedData.numeroAfiliado === '') cleanedData.numeroAfiliado = null;
     if (cleanedData.ocupacion === '') cleanedData.ocupacion = null;
     if (cleanedData.estadoCivil === '') cleanedData.estadoCivil = null;
     if (cleanedData.genero === '') cleanedData.genero = null;

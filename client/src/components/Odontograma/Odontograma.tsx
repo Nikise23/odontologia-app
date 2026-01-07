@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import PiezaDental from './PiezaDental';
 import { FaCalendarAlt, FaTrash } from 'react-icons/fa';
@@ -187,15 +187,17 @@ const LimpiarButton = styled.button`
 interface OdontogramaProps {
   pacienteId: string;
   odontogramaData?: any;
-  onSave: (data: any) => void;
+  onSave: (data: any) => Promise<void> | void;
   isSaving?: boolean;
+  onSaveSuccess?: () => void;
 }
 
 const Odontograma: React.FC<OdontogramaProps> = ({ 
   pacienteId, 
   odontogramaData, 
   onSave,
-  isSaving = false
+  isSaving = false,
+  onSaveSuccess
 }) => {
   const [observaciones, setObservaciones] = useState('');
   const [fecha, setFecha] = useState(new Date().toLocaleDateString('es-ES'));
@@ -218,6 +220,11 @@ const Odontograma: React.FC<OdontogramaProps> = ({
     pieza: '',
     cara: '' as 'derecha' | 'izquierda' | 'superior' | 'inferior' | 'central' | ''
   });
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null);
+  
+  // Clave para localStorage
+  const STORAGE_KEY = `odontograma_autosave_${pacienteId}`;
 
   // Definir las piezas dentales en orden correcto
   const piezasPermanentes = {
@@ -234,15 +241,255 @@ const Odontograma: React.FC<OdontogramaProps> = ({
     inferiorDerecho: ['81', '82', '83', '84', '85']
   };
 
+  // Cargar datos iniciales y recuperar cambios no guardados
   useEffect(() => {
+    console.log('🔄 Efecto de carga de datos ejecutado');
+    console.log('📊 Datos del servidor recibidos:', odontogramaData ? 'Sí' : 'No');
+    
+    // Primero, verificar si hay datos del servidor
     if (odontogramaData) {
-      setObservaciones(odontogramaData.observaciones || '');
-      setPiezasDentales(odontogramaData.piezasDentales || {});
+      console.log('📦 Datos del servidor:', {
+        tienePiezas: !!odontogramaData.piezasDentales,
+        cantidadPiezas: odontogramaData.piezasDentales ? Object.keys(odontogramaData.piezasDentales).length : 0,
+        observaciones: odontogramaData.observaciones,
+        updatedAt: odontogramaData.updatedAt
+      });
+      
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      let shouldUseServerData = true;
+      
+      // Si hay datos en localStorage, comparar timestamps
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          const savedTimestamp = new Date(parsed.timestamp);
+          const serverTimestamp = odontogramaData.updatedAt 
+            ? new Date(odontogramaData.updatedAt) 
+            : new Date(odontogramaData.createdAt || Date.now());
+          
+          // Si los datos locales son más recientes que los del servidor (menos de 1 minuto de diferencia)
+          // y tienen menos de 5 minutos, usarlos (cambios recientes no guardados)
+          const timeDiff = savedTimestamp.getTime() - serverTimestamp.getTime();
+          const ageDiff = Date.now() - savedTimestamp.getTime();
+          
+          console.log('⏱️ Comparación de timestamps:', {
+            local: savedTimestamp.toISOString(),
+            servidor: serverTimestamp.toISOString(),
+            diferencia: Math.round(timeDiff / 1000) + ' segundos',
+            edadLocal: Math.round(ageDiff / 1000) + ' segundos'
+          });
+          
+          if (timeDiff > 60000 && ageDiff < 5 * 60 * 1000) {
+            // Los datos locales son más recientes (más de 1 minuto) y son recientes, usarlos
+            console.log('📦 Usando cambios locales más recientes');
+            setObservaciones(parsed.observaciones || '');
+            setFecha(parsed.fecha || new Date().toLocaleDateString('es-ES'));
+            setPiezasDentales(parsed.piezasDentales || {});
+            setAutoSaveStatus('unsaved');
+            shouldUseServerData = false;
+          } else {
+            // Los datos del servidor son más recientes o los locales son muy antiguos
+            console.log('📥 Los datos del servidor son más recientes, limpiando localStorage');
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        } catch (error) {
+          console.error('❌ Error comparando datos:', error);
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      }
+      
+      // Usar datos del servidor si son más recientes o no hay datos locales
+      if (shouldUseServerData) {
+        const serverPiezas = odontogramaData.piezasDentales || {};
+        const serverObservaciones = odontogramaData.observaciones || '';
+        const currentPiezasStr = JSON.stringify(piezasDentales);
+        const serverPiezasStr = JSON.stringify(serverPiezas);
+        
+        console.log('🔍 Comparando datos:', {
+          piezasActuales: Object.keys(piezasDentales).length,
+          piezasServidor: Object.keys(serverPiezas).length,
+          sonDiferentes: currentPiezasStr !== serverPiezasStr,
+          observacionesDiferentes: observaciones !== serverObservaciones
+        });
+        
+        // Siempre cargar datos del servidor si están disponibles (especialmente en la primera carga)
+        // o si son diferentes
+        if (Object.keys(piezasDentales).length === 0 || currentPiezasStr !== serverPiezasStr || observaciones !== serverObservaciones) {
+          console.log('📥 Cargando datos del servidor:', Object.keys(serverPiezas).length, 'piezas');
+          console.log('📋 Piezas del servidor:', Object.keys(serverPiezas));
+          setObservaciones(serverObservaciones);
+          setPiezasDentales(serverPiezas);
+          if (odontogramaData.fecha) {
+            const fechaObj = new Date(odontogramaData.fecha);
+            setFecha(fechaObj.toLocaleDateString('es-ES'));
+          }
+          setAutoSaveStatus('saved');
+        } else {
+          console.log('✓ Los datos ya están sincronizados');
+        }
+      }
     } else {
-      // Odontograma limpio para empezar
-      setPiezasDentales({});
+      // No hay datos del servidor, intentar cargar de localStorage
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          const savedTimestamp = new Date(parsed.timestamp);
+          const now = new Date();
+          // Si los datos guardados son de hace menos de 24 horas, recuperarlos
+          if (now.getTime() - savedTimestamp.getTime() < 24 * 60 * 60 * 1000) {
+            setObservaciones(parsed.observaciones || '');
+            setFecha(parsed.fecha || new Date().toLocaleDateString('es-ES'));
+            setPiezasDentales(parsed.piezasDentales || {});
+            setAutoSaveStatus('unsaved');
+            console.log('📦 Cambios recuperados del guardado automático (sin datos del servidor)');
+          } else {
+            localStorage.removeItem(STORAGE_KEY);
+            setPiezasDentales({});
+          }
+        } catch (error) {
+          console.error('Error recuperando datos guardados:', error);
+          localStorage.removeItem(STORAGE_KEY);
+          setPiezasDentales({});
+        }
+      } else {
+        // Odontograma limpio para empezar
+        setPiezasDentales({});
+      }
     }
-  }, [odontogramaData]);
+  }, [odontogramaData, STORAGE_KEY]);
+  
+  // Función para formatear fecha
+  const formatFecha = (): string => {
+    let fechaFormateada: string;
+    try {
+      // Intentar parsear la fecha en formato DD/MM/YYYY
+      const partesFecha = fecha.split('/');
+      if (partesFecha.length === 3) {
+        const dia = partesFecha[0].padStart(2, '0');
+        const mes = partesFecha[1].padStart(2, '0');
+        const año = partesFecha[2];
+        // Crear fecha en hora local y convertir a ISO string
+        const fechaObj = new Date(parseInt(año), parseInt(mes) - 1, parseInt(dia));
+        if (isNaN(fechaObj.getTime())) {
+          throw new Error('Fecha inválida');
+        }
+        // Convertir a formato YYYY-MM-DD para enviar al backend
+        fechaFormateada = `${año}-${mes}-${dia}`;
+      } else {
+        // Si ya está en formato ISO o otro formato, intentar parsearlo
+        const fechaObj = new Date(fecha);
+        if (isNaN(fechaObj.getTime())) {
+          throw new Error('Fecha inválida');
+        }
+        // Convertir a formato YYYY-MM-DD
+        const year = fechaObj.getFullYear();
+        const month = String(fechaObj.getMonth() + 1).padStart(2, '0');
+        const day = String(fechaObj.getDate()).padStart(2, '0');
+        fechaFormateada = `${year}-${month}-${day}`;
+      }
+    } catch (error) {
+      console.error('Error procesando fecha:', error);
+      // Usar fecha actual como fallback
+      const hoy = new Date();
+      const year = hoy.getFullYear();
+      const month = String(hoy.getMonth() + 1).padStart(2, '0');
+      const day = String(hoy.getDate()).padStart(2, '0');
+      fechaFormateada = `${year}-${month}-${day}`;
+    }
+    return fechaFormateada;
+  };
+
+  // Guardar en localStorage cada vez que cambie algo
+  useEffect(() => {
+    if (pacienteId) {
+      const dataToSave = {
+        pacienteId,
+        observaciones,
+        fecha,
+        piezasDentales,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      setAutoSaveStatus('unsaved');
+    }
+  }, [observaciones, fecha, piezasDentales, pacienteId, STORAGE_KEY]);
+  
+  // Guardado automático al backend cada 30 segundos si hay cambios no guardados
+  useEffect(() => {
+    if (!pacienteId || isSaving) return;
+    
+    const autoSaveInterval = setInterval(async () => {
+      // Verificar el estado actual directamente desde el estado
+      if (autoSaveStatus === 'unsaved') {
+        setAutoSaveStatus('saving');
+        try {
+          const fechaFormateada = formatFecha();
+          const piezasDentalesObj = { ...piezasDentales };
+          
+          const dataToSave = {
+            pacienteId,
+            observaciones: observaciones.trim(),
+            fecha: fechaFormateada,
+            piezasDentales: piezasDentalesObj
+          };
+          
+          console.log('🔄 Iniciando guardado automático...');
+          
+          // Llamar al callback de guardado y esperar a que termine
+          await onSave(dataToSave);
+          
+          // Esperar un poco más para asegurar que el guardado se complete
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Limpiar localStorage después de guardar exitosamente
+          localStorage.removeItem(STORAGE_KEY);
+          setAutoSaveStatus('saved');
+          setLastAutoSave(new Date());
+          console.log('✅ Guardado automático exitoso');
+          
+          // Notificar que el guardado fue exitoso para que se recarguen los datos
+          if (onSaveSuccess) {
+            console.log('🔄 Recargando datos después del guardado automático...');
+            await onSaveSuccess();
+          }
+        } catch (error) {
+          console.error('❌ Error en guardado automático:', error);
+          setAutoSaveStatus('unsaved');
+        }
+      }
+    }, 30000); // Guardar cada 30 segundos
+    
+    return () => clearInterval(autoSaveInterval);
+  }, [pacienteId, autoSaveStatus, isSaving, observaciones, fecha, piezasDentales, onSave, onSaveSuccess, STORAGE_KEY]);
+  
+  // Guardar automáticamente antes de cerrar la página
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (autoSaveStatus === 'unsaved') {
+        // Intentar guardar sincrónicamente (limitado por navegador)
+        const fechaFormateada = formatFecha();
+        const piezasDentalesObj = { ...piezasDentales };
+        const dataToSave = {
+          pacienteId,
+          observaciones: observaciones.trim(),
+          fecha: fechaFormateada,
+          piezasDentales: piezasDentalesObj
+        };
+        // Guardar en localStorage como respaldo (ya está guardado, pero asegurarnos)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          ...dataToSave,
+          timestamp: new Date().toISOString()
+        }));
+        // Algunos navegadores requieren esto para mostrar el mensaje
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [autoSaveStatus, pacienteId, observaciones, fecha, piezasDentales, STORAGE_KEY]);
 
   // Cerrar menú contextual al hacer clic fuera
   useEffect(() => {
@@ -561,45 +808,7 @@ const Odontograma: React.FC<OdontogramaProps> = ({
       return;
     }
 
-    // Validar y formatear fecha
-    let fechaFormateada: string;
-    try {
-      // Intentar parsear la fecha en formato DD/MM/YYYY
-      const partesFecha = fecha.split('/');
-      if (partesFecha.length === 3) {
-        const dia = partesFecha[0].padStart(2, '0');
-        const mes = partesFecha[1].padStart(2, '0');
-        const año = partesFecha[2];
-        // Crear fecha en hora local y convertir a ISO string
-        const fechaObj = new Date(parseInt(año), parseInt(mes) - 1, parseInt(dia));
-        if (isNaN(fechaObj.getTime())) {
-          throw new Error('Fecha inválida');
-        }
-        // Convertir a formato YYYY-MM-DD para enviar al backend
-        fechaFormateada = `${año}-${mes}-${dia}`;
-      } else {
-        // Si ya está en formato ISO o otro formato, intentar parsearlo
-        const fechaObj = new Date(fecha);
-        if (isNaN(fechaObj.getTime())) {
-          throw new Error('Fecha inválida');
-        }
-        // Convertir a formato YYYY-MM-DD
-        const year = fechaObj.getFullYear();
-        const month = String(fechaObj.getMonth() + 1).padStart(2, '0');
-        const day = String(fechaObj.getDate()).padStart(2, '0');
-        fechaFormateada = `${year}-${month}-${day}`;
-      }
-    } catch (error) {
-      console.error('Error procesando fecha:', error);
-      // Usar fecha actual como fallback
-      const hoy = new Date();
-      const year = hoy.getFullYear();
-      const month = String(hoy.getMonth() + 1).padStart(2, '0');
-      const day = String(hoy.getDate()).padStart(2, '0');
-      fechaFormateada = `${year}-${month}-${day}`;
-    }
-
-    // Asegurar que piezasDentales sea un objeto plano (no Map)
+    const fechaFormateada = formatFecha();
     const piezasDentalesObj = { ...piezasDentales };
 
     const dataToSave = {
@@ -610,7 +819,18 @@ const Odontograma: React.FC<OdontogramaProps> = ({
     };
     
     console.log('📤 Enviando datos del odontograma:', dataToSave);
+    
+    // Limpiar localStorage al guardar manualmente
+    localStorage.removeItem(STORAGE_KEY);
+    setAutoSaveStatus('saving');
+    
     onSave(dataToSave);
+    
+    // Actualizar estado después de guardar
+    setTimeout(() => {
+      setAutoSaveStatus('saved');
+      setLastAutoSave(new Date());
+    }, 1000);
   };
 
 
@@ -882,8 +1102,29 @@ const Odontograma: React.FC<OdontogramaProps> = ({
         )}
       </MenuContextual>
 
-      {/* Botón de guardar */}
+      {/* Indicador de guardado automático y botón de guardar */}
       <div style={{ marginTop: '30px', textAlign: 'center' }}>
+        <div style={{ 
+          marginBottom: '15px', 
+          fontSize: '12px', 
+          color: '#6c757d',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px'
+        }}>
+          {autoSaveStatus === 'saving' && (
+            <span style={{ color: '#007bff' }}>💾 Guardando automáticamente...</span>
+          )}
+          {autoSaveStatus === 'unsaved' && (
+            <span style={{ color: '#ffc107' }}>⚠️ Cambios no guardados</span>
+          )}
+          {autoSaveStatus === 'saved' && lastAutoSave && (
+            <span style={{ color: '#28a745' }}>
+              ✓ Guardado automático: {lastAutoSave.toLocaleTimeString('es-ES')}
+            </span>
+          )}
+        </div>
         <button 
           onClick={handleSave}
           disabled={isSaving}

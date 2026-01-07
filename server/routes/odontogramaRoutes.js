@@ -47,9 +47,15 @@ router.get('/:pacienteId', async (req, res) => {
       await odontograma.save();
     }
 
+    // Convertir el Map a objeto plano antes de enviar
+    const odontogramaObj = odontograma.toJSON();
+    
+    console.log('📤 GET: Enviando odontograma con', Object.keys(odontogramaObj.piezasDentales || {}).length, 'piezas');
+    console.log('📋 GET: Piezas:', Object.keys(odontogramaObj.piezasDentales || {}));
+    
     res.json({
       success: true,
-      data: odontograma
+      data: odontogramaObj
     });
   } catch (error) {
     console.error('Error obteniendo odontograma:', error);
@@ -119,11 +125,16 @@ router.post('/', async (req, res) => {
 
     // Actualizar piezas dentales
     if (piezasDentales && typeof piezasDentales === 'object') {
+      console.log('📋 Procesando piezas dentales:', Object.keys(piezasDentales).length, 'piezas');
       for (const [pieza, estados] of Object.entries(piezasDentales)) {
         if (!pieza || typeof estados !== 'object' || !estados) {
           continue; // Saltar entradas inválidas
         }
         const estadoActual = odontograma.piezasDentales.get(pieza) || {};
+        console.log(`  - Pieza ${pieza}:`, { 
+          ausente: estados.ausente, 
+          caras: estados.caras ? Object.keys(estados.caras).length : 0 
+        });
         
         // Registrar cambios en el historial para ausente
         if (estados.ausente !== undefined && estados.ausente !== estadoActual.ausente) {
@@ -224,17 +235,32 @@ router.post('/', async (req, res) => {
         };
         
         odontograma.piezasDentales.set(pieza, nuevoEstado);
+        console.log(`  ✓ Pieza ${pieza} actualizada`);
       }
+      console.log(`📊 Total piezas en Map después de actualizar: ${odontograma.piezasDentales.size}`);
     }
 
     console.log('💾 Guardando odontograma...');
     await odontograma.save();
     console.log('✅ Odontograma guardado exitosamente');
+    
+    // Verificar que se guardó correctamente
+    const verificarOdontograma = await Odontograma.findById(odontograma._id);
+    console.log(`🔍 Verificación: ${verificarOdontograma.piezasDentales.size} piezas en la BD`);
+    
+    // Recargar el documento desde la base de datos para asegurar que tenemos los datos actualizados
+    const odontogramaGuardado = await Odontograma.findById(odontograma._id);
+    
+    // Convertir el Map a objeto plano antes de enviar
+    const odontogramaObj = odontogramaGuardado.toJSON();
+    
+    console.log('📤 POST: Enviando odontograma guardado con', Object.keys(odontogramaObj.piezasDentales || {}).length, 'piezas');
+    console.log('📋 POST: Piezas guardadas:', Object.keys(odontogramaObj.piezasDentales || {}));
 
     res.json({
       success: true,
       message: 'Odontograma guardado exitosamente',
-      data: odontograma
+      data: odontogramaObj
     });
   } catch (error) {
     console.error('❌ Error guardando odontograma:', error);
@@ -272,13 +298,27 @@ router.put('/:id', async (req, res) => {
       });
     }
 
-    // Verificar que la pieza existe
-    if (!odontograma.piezasDentales[pieza]) {
-      odontograma.piezasDentales[pieza] = { requerido: null, existente: null };
+    // Verificar que la pieza existe (usar .get() para Map)
+    if (!odontograma.piezasDentales.get(pieza)) {
+      odontograma.piezasDentales.set(pieza, { 
+        requerido: null, 
+        existente: null,
+        ausente: false,
+        caras: {
+          derecha: null,
+          izquierda: null,
+          superior: null,
+          inferior: null,
+          central: null
+        }
+      });
     }
 
+    // Obtener estado actual
+    const estadoActual = odontograma.piezasDentales.get(pieza) || {};
+    
     // Registrar cambio en historial
-    const estadoAnterior = odontograma.piezasDentales[pieza][tipo];
+    const estadoAnterior = estadoActual[tipo] || null;
     odontograma.historial.push({
       pieza,
       tipo,
@@ -288,14 +328,22 @@ router.put('/:id', async (req, res) => {
     });
 
     // Actualizar estado
-    odontograma.piezasDentales[pieza][tipo] = estado;
+    const nuevoEstado = {
+      ...estadoActual,
+      [tipo]: estado
+    };
+    odontograma.piezasDentales.set(pieza, nuevoEstado);
     
     await odontograma.save();
+    
+    // Recargar y convertir a objeto
+    const odontogramaActualizado = await Odontograma.findById(odontograma._id);
+    const odontogramaObj = odontogramaActualizado.toJSON();
 
     res.json({
       success: true,
       message: 'Pieza dental actualizada exitosamente',
-      data: odontograma
+      data: odontogramaObj
     });
   } catch (error) {
     console.error('Error actualizando pieza dental:', error);

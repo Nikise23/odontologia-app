@@ -56,9 +56,15 @@ const OdontogramaPage: React.FC = () => {
       const response = await saveOdontograma(data);
       
       if (response.success) {
+        // Limpiar localStorage después de guardar exitosamente
+        const storageKey = `odontograma_autosave_${data.pacienteId}`;
+        localStorage.removeItem(storageKey);
+        
+        // Invalidar y refetch los datos del odontograma ANTES de mostrar la notificación
+        await queryClient.invalidateQueries(['odontograma', id]);
+        await queryClient.refetchQueries(['odontograma', id]);
+        
         showNotification('Odontograma guardado exitosamente', 'success');
-        // Invalidar y refetch los datos del odontograma
-        queryClient.invalidateQueries(['odontograma', id]);
       } else {
         showNotification('Error al guardar el odontograma', 'error');
       }
@@ -68,6 +74,12 @@ const OdontogramaPage: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveSuccess = async () => {
+    // Recargar datos después de guardado automático exitoso
+    await queryClient.invalidateQueries(['odontograma', id]);
+    await queryClient.refetchQueries(['odontograma', id]);
   };
 
   if (isLoading) {
@@ -103,6 +115,7 @@ const OdontogramaPage: React.FC = () => {
         odontogramaData={odontogramaData?.data}
         onSave={handleSaveOdontograma}
         isSaving={isSaving}
+        onSaveSuccess={handleSaveSuccess}
       />
     </OdontogramaContainer>
   );

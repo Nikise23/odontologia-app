@@ -22,6 +22,25 @@ const app = express();
 // Esto es necesario para que express-rate-limit funcione correctamente
 app.set('trust proxy', true);
 
+// Configuración CORS - DEBE IR PRIMERO antes de cualquier otro middleware
+// En producción con frontend y backend juntos, no necesitamos CORS estricto
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production'
+    ? true // Permitir mismo origen cuando están juntos
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Aplicar CORS primero
+app.use(cors(corsOptions));
+// Manejar preflight requests explícitamente
+app.options('*', cors(corsOptions));
+
 // Middleware de seguridad
 // Configurar helmet para producción (servir archivos estáticos)
 if (process.env.NODE_ENV === 'production') {
@@ -32,28 +51,37 @@ if (process.env.NODE_ENV === 'production') {
   app.use(helmet());
 }
 
-// Rate limiting
+// Rate limiting - Configuración más permisiva para desarrollo
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // máximo 100 requests por ventana
-  message: 'Demasiadas solicitudes desde esta IP, intenta de nuevo más tarde.'
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // Más permisivo en desarrollo
+  message: 'Demasiadas solicitudes desde esta IP, intenta de nuevo más tarde.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Saltar rate limiting para rutas de autenticación en desarrollo
+    if (process.env.NODE_ENV !== 'production' && req.path.startsWith('/api/auth')) {
+      return true;
+    }
+    return false;
+  }
 });
+
+// Rate limiting más permisivo para autenticación
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: process.env.NODE_ENV === 'production' ? 20 : 100, // Más permisivo en desarrollo
+  message: 'Demasiados intentos de login. Por favor intenta más tarde.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Aplicar rate limiting a rutas de autenticación con límite especial
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+
+// Aplicar rate limiting general a todas las demás rutas API
 app.use('/api/', limiter);
-
-// Middleware
-// Configuración CORS
-// En producción con frontend y backend juntos, no necesitamos CORS estricto
-const corsOptions = {
-  origin: process.env.NODE_ENV === 'production'
-    ? true // Permitir mismo origen cuando están juntos
-    : ['http://localhost:3000'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

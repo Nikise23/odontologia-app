@@ -66,4 +66,39 @@ const odontogramaSchema = new mongoose.Schema({
 odontogramaSchema.index({ pacienteId: 1, fecha: -1 });
 odontogramaSchema.index({ 'historial.fecha': -1 });
 
+// Método para convertir Map a objeto plano al serializar
+odontogramaSchema.methods.toJSON = function() {
+  const obj = this.toObject({ virtuals: true });
+  
+  // Convertir el Map de piezasDentales a un objeto plano
+  // Mongoose puede devolver el Map como un objeto especial, necesitamos convertirlo
+  let piezasObj = {};
+  
+  if (this.piezasDentales && this.piezasDentales instanceof Map) {
+    // Si es un Map, convertirlo directamente
+    this.piezasDentales.forEach((value, key) => {
+      piezasObj[key] = value;
+    });
+    console.log(`📤 toJSON: Convertido Map con ${this.piezasDentales.size} piezas a objeto`);
+  } else if (obj.piezasDentales) {
+    // Si ya es un objeto (después de toObject), verificar su estructura
+    if (obj.piezasDentales instanceof Map) {
+      // Aún es un Map después de toObject (poco común pero posible)
+      obj.piezasDentales.forEach((value, key) => {
+        piezasObj[key] = value;
+      });
+      console.log(`📤 toJSON: Map encontrado después de toObject, ${obj.piezasDentales.size} piezas`);
+    } else if (typeof obj.piezasDentales === 'object' && obj.piezasDentales !== null) {
+      // Es un objeto, copiarlo directamente
+      piezasObj = { ...obj.piezasDentales };
+      console.log(`📤 toJSON: Objeto encontrado, ${Object.keys(piezasObj).length} piezas`);
+    }
+  }
+  
+  obj.piezasDentales = piezasObj;
+  console.log(`📤 toJSON: Enviando ${Object.keys(piezasObj).length} piezas al frontend`);
+  
+  return obj;
+};
+
 module.exports = mongoose.model('Odontograma', odontogramaSchema);
