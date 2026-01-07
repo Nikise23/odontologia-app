@@ -51,36 +51,37 @@ if (process.env.NODE_ENV === 'production') {
   app.use(helmet());
 }
 
-// Rate limiting - Configuración más permisiva para desarrollo
+// Rate limiting - Configuración más permisiva
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // Más permisivo en desarrollo
+  max: process.env.NODE_ENV === 'production' ? 500 : 1000, // Más permisivo en producción también
   message: 'Demasiadas solicitudes desde esta IP, intenta de nuevo más tarde.',
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Saltar rate limiting para rutas de autenticación en desarrollo
-    if (process.env.NODE_ENV !== 'production' && req.path.startsWith('/api/auth')) {
+    // Saltar rate limiting para rutas de autenticación (tanto en desarrollo como producción)
+    if (req.path.startsWith('/api/auth')) {
       return true;
     }
     return false;
   }
 });
 
-// Rate limiting más permisivo para autenticación
+// Rate limiting muy permisivo para autenticación (solo como medida de seguridad básica)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: process.env.NODE_ENV === 'production' ? 20 : 100, // Más permisivo en desarrollo
+  max: process.env.NODE_ENV === 'production' ? 100 : 200, // Muy permisivo
   message: 'Demasiados intentos de login. Por favor intenta más tarde.',
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true, // No contar requests exitosos
 });
 
 // Aplicar rate limiting a rutas de autenticación con límite especial
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
-// Aplicar rate limiting general a todas las demás rutas API
+// Aplicar rate limiting general a todas las demás rutas API (excepto auth que ya está excluida)
 app.use('/api/', limiter);
 
 app.use(express.json({ limit: '10mb' }));
